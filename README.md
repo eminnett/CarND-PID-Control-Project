@@ -3,6 +3,51 @@ Self-Driving Car Engineer Nanodegree Program
 
 ---
 
+## Reflection
+
+### The effect of P, I, and D in the PID Controller
+
+- **P (Proportional)**: The proportional term of the PID controller attempts to account for the cross track error by turning the vehicle toward the desired path by an amount proportional to the cross track. This very quickly steers the vehicle toward the path, but when the vehicle approaches the desired path and the cross track error is small, the vehicle begin to drive straight even though the vehicle is not following the desired path. This process will result in an oscilation when attempting to drive in a straight line and will most likely cause the vehicle to drive off the road while attempting to navigate a corner.
+
+- **I (Integral)**: The integral term of the PID controller attempts to minimise 'accumulated' cross track error. If the vehicle has spent time driving on one side of the desired path, this term of the controller will attempt to drive the vehicle on the other side of the desired path in order to negate the accumulated error. This could also result in an oscillation if it is the only term used in the controller. The Integral term can also be used to counter the effect of a steering bias that would cause the vehicle to follow the desired path, but offset from the path by some amount.
+
+- **D (Derivative)**: The derivative term of the PID controller helps address changes in the cross track error. This term is proportional to the change in cross track error meaning that if the cross track error is increasing, it will steer the vehicle toward the desired path. If the cross track error is decreasing, it will steer the vehicle away from the desired path. This counter steering helps steer the vehicle onto the desired path when the vehicle is approaching it from one side or the other. This term helps address the oscillations that can be introduced by the proportional and integral terms allowing the vehicle to drive more consistently along the desired path.
+
+### The Hyperparameter Search
+
+I started by playing with the `kp`, `ki`, and `kd` parameters to confirm that the controller was behaving as I expected. This also allowed me to get a rough sense of the impact of each parameter. Printing the error value for each term also allowed me to get sense of the rough order of magnitude that each parameter should have. I would have liked to implement the Twiddle algorithm and tune the parameters algorithmically, but i couldn't figure out an easy way to restart the simulator automatically after each run of Twiddle.
+
+Instead, I opted for a manual approach. I knew that this wouldn't result in optimal values for the parameters but felt like the process was good enough for the spirit of this project. Based on what I had already found playing with the parameters I decided the following process would be suitable.
+
+- Start with `kp = 1`, `ki = 0`, and `kd = 0` and observe the behaviour.
+- Tune `kp` until the vehicle was able to reach the first corner.
+- Add `kd = 1` and observe the behaviour.
+- Tune `kd` until the vehicle was able to complete a lap of the track (safely or not).
+- Add `ki = 0.1` and observe the behaviour. I knew initialising `ki` to 1 would be a mistake as the integral error term was so much larger than the other terms.
+- Tune `ki` until the vehicle was able to complete a lap of the track as safely as possible.
+
+Based on my observations of the three error values, I believed `kp` should be less than 1 but not too much less, `ki` should be quite a bit less than 1, and `kd` should be quite a bit larger than 1. These observations influenced the direction of the search for each value.
+
+The parameter values were chosen first by order of magnitude and then by trying values that were between the orders of magnitude on a log scale. For example, if the vehicle performed ok with a parameter value of 1, but worse with a value of 10 the the next value would be 3.16 (half way between 1 and 10 on the log scale). This process is a little arbitrary, but it felt more reasonable than halving the difference between 1 and 10 as the impact of a value of 10 is more than twice that of 1.
+
+These were my parameter choices and observations of the vehicles behaviour (the bolded parameter is the one modified for the given iteration):
+
+- **kp: 1**, ki: 0, kd: 0: The oscillations grew too great to continue along the initial straight road.
+- **kp: 0.1**, ki: 0, kd: 0: Ok along the straight but too slow to react to the first corner.
+- kp: 0.1, ki: 0, **kd: 1**: Made it around the track, but not in a way that would be deemed safe.
+- kp: 0.1, ki: 0, **kd: 10**: Made it around the track more safely, but steering correction looked a bit jittery.
+- kp: 0.1, ki: 0, **kd: 100**: Made it around the track, but the steering seemed off almost introducing a bias that the controller couldn't compensate for.
+- kp: 0.1, ki: 0, **kd: 31.6**: Better than the previous 2 iterations, but not good enough.
+- **kp: 0.316**, ki: 0, kd: 31.6: Made it around the track safely!
+- kp: 0.316, **ki: 0.1**, kd: 31.6: Off the track almost immediately.
+- kp: 0.316, **ki: 0.01**, kd: 31.6: Made it around the track safely! Integral error is much smaller and the car appears to remain closer to the center of the track.
+- kp: 0.316, **ki: 0.001**, kd: 31.6: A bit less central but a bit less jittery. I would say this is a worse performance than the previous iteration.
+- kp: 0.316, **ki: 0.00316**, kd: 31.6: A bit better than the pervious iteration, but a bit too close the edges in some places.
+
+Based on this process, I settled on final parameter values of `kp: 0.316, ki: 0.01, kd: 31.6`.
+
+---
+
 ## Dependencies
 
 * cmake >= 3.5
@@ -25,7 +70,7 @@ Self-Driving Car Engineer Nanodegree Program
 1. Clone this repo.
 2. Make a build directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
-4. Run it: `./pid`. 
+4. Run it: `./pid`.
 
 ## Editor Settings
 
