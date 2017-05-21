@@ -33,7 +33,23 @@ int main()
   uWS::Hub h;
 
   PID pid;
-  // TODO: Initialize the pid variable.
+
+  // 1, 0, 0: The oscilations grew too great to continue along the straight.
+  // 0.1, 0, 0: Ok along the straight but too slow to react to the first corner.
+  // 0.1, 0, 1: Made around the track, but not in a way that would be deemed safe.
+  // 0.1, 0, 10: Made it around the track more safely, but steering correction looked a bit jittery.
+  // 0.1, 0, 100: Made it around the track, but the steering seemed off almost introducing a bias that the controller couldn't compensate for.
+  // 0.1, 0, 31.6 (midway between 10 and 100 on a log scale): Better than the previous 2 iterations, but not good enough.
+  // 0.316, 0, 31.6: Made it around the track safely!
+  // 0.316, 0.1, 31.6: Off the track almost immediately.
+  // 0.316, 0.01, 31.6: Made it around the track safely! Integral error is much smaller and the car appears to remain closer to the center of the track.
+  // 0.316, 0.001, 31.6: A bit less central but a bit less jittery. I would say this is a worse performance than the previous iteration.
+  // 0.316, 0.00316, 31.6: A bit better than the pervious iteration, but a bit too close the edges in some places.
+
+  double Kp = 0.316;
+  double Ki = 0.01;
+  double Kd = 31.6;
+  pid.Init(Kp, Ki, Kd);
 
   h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -51,13 +67,14 @@ int main()
           double speed = std::stod(j[1]["speed"].get<std::string>());
           double angle = std::stod(j[1]["steering_angle"].get<std::string>());
           double steer_value;
-          /*
-          * TODO: Calcuate steering value here, remember the steering value is
-          * [-1, 1].
-          * NOTE: Feel free to play around with the throttle and speed. Maybe use
-          * another PID controller to control the speed!
-          */
-          
+
+          pid.UpdateError(cte);
+
+          steer_value = pid.TotalError();
+          // Limit the steer_value to [-1, 1]
+          // (as stated by the instructions 'remember the steering value is [-1, 1].')
+          steer_value = fmin(fmax(steer_value, -1), 1);
+
           // DEBUG
           std::cout << "CTE: " << cte << " Steering Value: " << steer_value << std::endl;
 
